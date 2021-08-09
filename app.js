@@ -3,6 +3,7 @@ var server = require('http').Server(app);
 var io = require('socket.io')(server);
 const faker = require('faker');
 const mysql = require('mysql');
+var moment = require('moment');
 
 app.get('/', function(req, res) {
     res.sendFile(__dirname + '/index.html');
@@ -37,41 +38,57 @@ app.get('/createdb', (req, res) => {
 
 // Create table
 app.get('/createtable', (req, res) => {
-    let sql = 'CREATE TABLE orders(id INT AUTO_INCREMENT, user VARCHAR(255), merchant VARCHAR(255), created_at DATETIME, amount REAL, currency VARCHAR(20), product_id INT, quantity INT, PRIMARY KEY(id))';
+    let sql = 'CREATE TABLE orders(id INT AUTO_INCREMENT, transaction_id INT, user VARCHAR(255), merchant VARCHAR(255), created_at DATETIME, amount REAL, currency VARCHAR(20), product_id INT, quantity INT, PRIMARY KEY(id))';
     db.query(sql, (err, result) => {
         if(err) throw err;
-        //console.log(result);
+        console.log(result);
         res.send('table created...');
     });
 });
 
+// Generate the orders and send to client
 io.on('connection', function(socket) {
 	var interval = setInterval(function(){
-		const id = faker.datatype;
+		const random_id = faker.datatype;
 		const name = faker.name;
 		const finance = faker.finance;
 		const commerce = faker.commerce;
-		const curr_time = new Date();
+		const curr_time = moment.utc().toDate();
 
-        data = {"id": id.number(),
-        "user": name.firstName(),
-        "merchant": name.firstName(),
-        "created_at": curr_time,
-        "amount": finance.amount(),
-        "currency": finance.currencyCode(),
-        "product_id": id.number(),
-        "quantity": id.number()}
+		let sql = 'INSERT INTO orders SET ?';
+		let data = {
+			"transaction_id": random_id.number(),
+			"user": name.firstName(),
+			"merchant": name.firstName(),
+			"created_at": curr_time,
+			"amount": finance.amount(),
+			"currency": finance.currencyCode(),
+			"product_id": random_id.number(),
+			"quantity": random_id.number()
+		};
 
-		//numClients++;
-		io.emit('stats', data);
+		io.emit('orders', data);
 
-		console.log(id.number());
-	}, 60); 
+		let query = db.query(sql, data, (err, result) => {
+			if(err) throw err;
+		});
 
+	}, 60);
 
-    /*socket.on("disconnect", (connection) => {
-		clearInterval(interval);
-	});*/
+    //socket.on("disconnect", (connection) => {
+	//	clearInterval(interval);
+	//});
 });
+io.on('connection', function(socket) {
+	socket.on('fetch_transaction', function(data) {
+		console.log("transaction ID: ", data.id)
+		let sql = `SELECT * FROM orders WHERE transaction_id = ${data.id}`;
+		let query = db.query(sql, (err, result) => {
+			if(err) throw err;
+			//console.log(result[0].user);
+			socket.emit('transaction', result[0])
+		});
+	})
+})
 
 server.listen(80);

@@ -2,14 +2,13 @@
     <head>
         <title>Server Sent Events</title>
 		<style>
-			#search_box {
+			.search_box {
 				width: 80%;
 				margin: auto;
-				margin-bottom: 5px;
 				padding-bottom: 5px;
+				margin-bottom: 5px;
 				text-align: center;
 				}
-			#search_result {margin-top:5px;}
 			h1 {text-align: center;}
 			td, th{border: 1px solid black; text-align:center;}
 			th {background: #d0e4fe;}
@@ -40,43 +39,16 @@
     </head>
     <body>
 		<h1>Realtime Transaction Generator</h1>
-		<div id="search_box" style="align:center;">
+		<div class="search_box" style="align:center;">
 			<h2>Search a transaction here using transaction id.</h2>
-			<form action="{{ url_for('render') }}" method="POST">
+			<form onsubmit="fetchTransaction(event.preventDefault())">
 				<label>Transaction ID:</label>
-				<input type='text' name='trans_id'>
+				<input type='text' id="trans_id" name='trans_id'>
 				<button type="submit">Fetch Transaction</button>
 			</form>
-			{% if entries %}
-			  <table id="search_result">
-				<thead>
-					<tr>
-						<th>Transaction ID</th>
-						<th>User</th>
-						<th>Merchant</th>
-						<th>Created At</th>
-						<th>Amount</th>
-						<th>Currency</th>
-						<th>Product ID</th>
-						<th>Quantity</th>
-					</tr>
-				</thead>
-				<tbody id="table_body">
-				  {% for entry in entries %}
-					<tr>
-						<td>{{ entry.id }}</td>
-						<td>{{ entry.user }}</td>
-						<td>{{ entry.merchant }}</td>
-						<td>{{ entry.time }}</td>
-						<td>{{ entry.amount }}</td>
-						<td>{{ entry.currency }}</td>
-						<td>{{ entry.product_id }}</td>
-						<td>{{ entry.quantity }}</td>
-					</tr>
-				  {% endfor %}
-				</tbody>
-			  </table>
-			{% endif %}
+
+			<div id="fetch-trans" style="align:center;">
+			</div>
 		</div>
 		<div class="transactions" id="transactions">
 			<table id="table_2">
@@ -99,9 +71,22 @@
 		</div>
 		<script src="/socket.io/socket.io.js"></script>
 		<script>
+			// connect to socket
 			var socket = io.connect('/');
-			socket.on('stats', function(data) {
-				document.getElementById("result-rows").innerHTML += '<tr style="width: 20px;"><td>' + data.id + "</td>" + '<td>' + data.user+ "</td>" + '<td>' + data.merchant + "</td>" + '<td>' + data.created_at + "</td>" + '<td>' + data.amount+ "</td>" + '<td>' + data.currency + "</td>" + '<td>' + data.product_id + "</td>" + '<td>' + data.quantity + "</td></tr>";
+
+			// fetch transaction
+			function fetchTransaction () {
+				const trans_id = document.getElementById('trans_id');
+				socket.emit('fetch_transaction', {id: trans_id.value});
+			}
+			socket.on('transaction', function(data) {
+				
+				document.getElementById("fetch-trans").innerHTML = '<table id="search_result"><thead><tr><th>Transaction ID</th><th>User</th><th>Merchant</th><th>Created At</th><th>Amount</th><th>Currency</th><th>Product ID</th><th>Quantity</th></tr></thead><tbody id="search_trans">' + '<tr style="width: 20px;"><td>' + data.transaction_id + "</td>" + '<td>' + data.user+ "</td>" + '<td>' + data.merchant + "</td>" + '<td>' + data.created_at + "</td>" + '<td>' + data.amount+ "</td>" + '<td>' + data.currency + "</td>" + '<td>' + data.product_id + "</td>" + '<td>' + data.quantity + "</td></tr>" + "</tbody></table>";
+			})
+
+			// display realtime orders
+			socket.on('orders', function(data) {
+				document.getElementById("result-rows").innerHTML += '<tr style="width: 20px;"><td>' + data.transaction_id + "</td>" + '<td>' + data.user+ "</td>" + '<td>' + data.merchant + "</td>" + '<td>' + data.created_at + "</td>" + '<td>' + data.amount+ "</td>" + '<td>' + data.currency + "</td>" + '<td>' + data.product_id + "</td>" + '<td>' + data.quantity + "</td></tr>";
 
 				var objDiv = document.getElementById("result-rows");
 				objDiv.lastChild.scrollIntoView();
